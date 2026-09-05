@@ -11,35 +11,39 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Set up Python 3.11
       uses: actions/setup-python@v5
       with:
         python-version: "3.11"
         cache: 'pip'
-        
-    - name: Install uv and dependencies
+        cache-dependency-path: 'requirements.txt'
+
+    - name: Install dependencies
       run: |
-        pip install uv
-        uv pip install --system -r requirements.txt || uv pip install --system fastapi uvicorn pydantic pyyaml grpcio grpcio-tools redis pytest httpx anyio
-        
+        pip install --upgrade pip
+        pip install -r requirements.txt
+
     - name: Compile Protobufs
       run: |
-        python -m grpc_tools.protoc -Icontracts/proto --python_out=contracts/proto --grpc_python_out=contracts/proto contracts/proto/orchestrator.proto
-        sed -i 's/import orchestrator_pb2 as orchestrator__pb2/from . import orchestrator_pb2 as orchestrator__pb2/g' contracts/proto/orchestrator_pb2_grpc.py
-        
+        python -m grpc_tools.protoc \
+          -Icontracts/proto \
+          --python_out=contracts/proto \
+          --grpc_python_out=contracts/proto \
+          contracts/proto/orchestrator.proto
+        sed -i 's/import orchestrator_pb2 as orchestrator__pb2/from . import orchestrator_pb2 as orchestrator__pb2/g' \
+          contracts/proto/orchestrator_pb2_grpc.py
+
     - name: Run Pytest
       run: |
-        # Generate dummy certificates for testing
         bash scripts/generate_certs.sh
-        # Run the test suite
-        pytest tests/ -v
+        pytest tests/ -v --tb=short
 
   docker-build:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    
+
     - name: Build Gateway Docker image
       run: |
         docker build -t orchestration-gateway:latest -f deploy/Dockerfile .
