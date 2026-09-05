@@ -1,0 +1,76 @@
+syntax = "proto3";
+
+package orchestrator;
+
+// Node Registry Service
+// Used for node registration and attestation.
+service NodeRegistry {
+  rpc RegisterNode (NodeRegistrationRequest) returns (NodeRegistrationResponse) {}
+}
+
+message NodeRegistrationRequest {
+  string node_id = 1;
+  string node_class = 2; // "edge" or "cloud"
+  repeated string supported_models = 3;
+  repeated string data_residency_zones = 4;
+  string hardware_specs_json = 5;
+  string auth_token = 6;
+}
+
+message NodeRegistrationResponse {
+  string status = 1; // "success" or "rejected"
+  string message = 2;
+}
+
+
+// Telemetry Service
+// Streams telemetry from Node Agents to the Control Plane.
+service Telemetry {
+  rpc StreamTelemetry (stream TelemetrySnapshot) returns (TelemetryAck) {}
+}
+
+message TelemetrySnapshot {
+  string node_id = 1;
+  string node_class = 2;
+  double timestamp = 3;
+  double rtt_ms = 4;
+  double bandwidth_available_mbps = 5;
+  double cpu_util_pct = 6;
+  double gpu_util_pct = 7;
+  int32 queue_depth = 8;
+  double cost_per_1k_inferences_usd = 9;
+  string health = 10; // "healthy", "degraded", "unreachable"
+  repeated string data_residency_zones = 11;
+}
+
+message TelemetryAck {
+  string status = 1;
+}
+
+
+// Execution Service
+// Used by the Scheduler to dispatch inference tasks to Node Agents.
+service Execution {
+  rpc ExecuteTask (ExecutionRequest) returns (ExecutionResponse) {}
+}
+
+message ExecutionRequest {
+  string task_id = 1;
+  string node_id = 2;
+  string model_id = 3;
+  string payload_ref = 4;
+  string idempotency_key = 5;
+  double timeout_ms = 6;
+}
+
+message ExecutionResponse {
+  string task_id = 1;
+  string node_id = 2;
+  string node_class = 3;
+  string status = 4; // "success", "failed", "rejected"
+  double execution_time_ms = 5;
+  string output_json = 6;
+  string error = 7;
+  bool cached = 8;
+  string idempotency_key = 9;
+}

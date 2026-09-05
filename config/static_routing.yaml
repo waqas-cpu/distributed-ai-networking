@@ -1,0 +1,23 @@
+# Static Fallback Routing Policy
+# Pre-computed cached routing rules used when Decision Engine is offline/unresponsive
+# Principle: Fail-open rather than fail-closed
+default_fallback_chain:
+  - "edge-frankfurt-1"
+  - "edge-london-1"
+  - "cloud-aws-eu-central"
+
+residency_overrides:
+  eu-only:
+    - "edge-frankfurt-1"
+    - "cloud-aws-eu-central"
+  us-only:
+    - "cloud-aws-us-east"
+
+node_class_defaults:
+  edge_preferred:
+    - "edge-frankfurt-1"
+    - "edge-london-1"
+    - "cloud-aws-eu-central"
+  cloud_fallback:
+    - "cloud-aws-eu-central"
+    - "cloud-aws-us-east"

@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  redis:
+    image: redis:7.0-alpine
+    container_name: telemetry-redis
+    ports:
+      - "6379:6379"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+
+  prometheus:
+    image: prom/prometheus:v2.45.0
+    container_name: telemetry-prometheus
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.0.0
+    container_name: telemetry-grafana
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Admin
+    restart: unless-stopped
+
+  orchestration-gateway:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: ai-orchestration-gateway
+    ports:
+      - "8000:8000"
+      - "50050:50050" # gRPC Control Plane Port
+    environment:
+      - ENV=production
+      - LOG_LEVEL=INFO
+      - REDIS_URL=redis://telemetry-redis:6379/0
+      - ENABLE_MTLS=true
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/v1/health')"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+    volumes:
+      - ../certs:/app/certs:ro
+
+  node-edge-frankfurt:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: node-edge-frankfurt-1
+    command: ["python", "-m", "node_agent.main", "--node-id", "edge-frankfurt-1", "--node-class", "edge", "--port", "50051", "--control-plane", "orchestration-gateway:50050", "--zones", "eu-only", "--cost", "0.2"]
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      orchestration-gateway:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ../certs:/app/certs:ro
+
+  node-cloud-aws:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: node-cloud-aws-eu
+    command: ["python", "-m", "node_agent.main", "--node-id", "cloud-aws-eu-central", "--node-class", "cloud", "--port", "50051", "--control-plane", "orchestration-gateway:50050", "--zones", "eu-only,us-only", "--cost", "1.5"]
+    environment:
+      - PYTHONPATH=/app
+    depends_on:
+      orchestration-gateway:
+        condition: service_healthy
+    restart: unless-stopped
+    volumes:
+      - ../certs:/app/certs:ro

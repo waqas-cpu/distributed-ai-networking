@@ -1,0 +1,21 @@
+# SLA Weight Profiles Configuration
+# Hot-reloadable configuration for multi-criteria placement
+profiles:
+  real_time:
+    w_lat: 0.50
+    w_bw: 0.15
+    w_cmp: 0.15
+    w_queue: 0.15
+    w_cost: 0.05
+  interactive:
+    w_lat: 0.35
+    w_bw: 0.15
+    w_cmp: 0.20
+    w_queue: 0.15
+    w_cost: 0.15
+  batch:
+    w_lat: 0.10
+    w_bw: 0.10
+    w_cmp: 0.20
+    w_queue: 0.20
+    w_cost: 0.40

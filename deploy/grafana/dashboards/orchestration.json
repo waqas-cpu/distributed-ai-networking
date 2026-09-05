@@ -1,0 +1,29 @@
+{
+  "title": "AI Workload Orchestration",
+  "panels": [
+    {
+      "title": "Decision Latency (ms)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "rate(ai_orchestration_placement_latency_ms_sum[1m]) / rate(ai_orchestration_placement_latency_ms_count[1m])",
+          "legendFormat": "{{sla_class}} latency"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 }
+    },
+    {
+      "title": "Fallback Exhaustion Rate",
+      "type": "stat",
+      "targets": [
+        {
+          "expr": "sum(rate(ai_orchestration_fallback_exhaustion_total[1m])) by (sla_class)",
+          "legendFormat": "{{sla_class}}"
+        }
+      ],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 }
+    }
+  ],
+  "schemaVersion": 36,
+  "refresh": "5s"
+}
