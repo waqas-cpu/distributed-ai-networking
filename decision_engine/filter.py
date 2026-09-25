@@ -5,7 +5,7 @@ Filters out candidate nodes that fail non-negotiable requirements prior to scori
 from __future__ import annotations
 
 from typing import Dict, List, Tuple
-from contracts.models import HealthStatus, NodeTelemetrySnapshot, TaskRequest, SLAClass
+from contracts.models import HealthStatus, NodeTelemetrySnapshot, TaskRequest, SLAClass, AssuranceLevel
 from telemetry.validator import TelemetryValidator
 
 COST_CEILINGS_USD = {
@@ -84,6 +84,12 @@ class ConstraintFilter:
             if node.cost_per_1k_inferences_usd > cost_ceiling:
                 rejected[node.node_id] = f"cost_ceiling_exceeded_${node.cost_per_1k_inferences_usd}>${cost_ceiling}"
                 continue
+
+            # 7. Hardware Assurance Level constraint
+            if task.required_assurance_level == AssuranceLevel.HIGH_ASSURANCE:
+                if node.assurance_level != AssuranceLevel.HIGH_ASSURANCE:
+                    rejected[node.node_id] = f"insufficient_assurance_level: required HIGH_ASSURANCE, node provides {node.assurance_level.value}"
+                    continue
 
             passed.append(node)
 

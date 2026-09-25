@@ -14,6 +14,53 @@ from telemetry.store import TelemetryStore
 from fastapi import FastAPI
 
 
+def bootstrap_supply_chain(etcd: Optional[Any] = None) -> None:
+    """Bootstrap default approved model artifacts and supply-chain policy in authoritative state."""
+    from common.state import SimulatedEtcdProvider
+    from common.supply_chain import (
+        create_provenance,
+        register_approved_model,
+        set_supply_chain_policy,
+    )
+    from contracts.models import SupplyChainPolicy
+    from cryptography.hazmat.primitives.asymmetric import ed25519
+
+    etcd = etcd or SimulatedEtcdProvider()
+
+    # Configure default supply chain policy
+    policy = SupplyChainPolicy(
+        require_immutable_digest=True,
+        require_signature=True,
+        allowed_builders=["spiffe://distributed-ai.local/ci-builder"],
+        max_allowed_critical_vulns=0,
+        max_allowed_high_vulns=0,
+    )
+    set_supply_chain_policy(policy, etcd)
+
+    # Seed CI release signing key
+    ci_signer_key = ed25519.Ed25519PrivateKey.generate()
+
+    # Register approved models: vision-classifier-v3 and v3
+    for model_name in ["vision-classifier-v3", "v3"]:
+        vision_digest = "sha256:4a3b84175317b6a1e3b5e40854378f56193d56a31c5040f7d5440798e4f55e09"
+        provenance = create_provenance(
+            artifact_name=model_name,
+            digest=vision_digest,
+            builder_identity="spiffe://distributed-ai.local/ci-builder",
+            commit_sha="a1b2c3d4e5f67890123456789abcdef012345678",
+            sbom_digest="sha256:ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+            vulnerabilities_summary={"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0},
+        )
+        register_approved_model(
+            model_id=model_name,
+            digest=vision_digest,
+            provenance=provenance,
+            signing_key=ci_signer_key,
+            key_id="ci-release-signer-1",
+            etcd=etcd,
+        )
+
+
 def create_simulated_cluster() -> Tuple[
     TelemetryStore,
     DecisionEngine,
@@ -23,6 +70,9 @@ def create_simulated_cluster() -> Tuple[
     FastAPI,
 ]:
     """Instantiate and wire up a full simulated hybrid edge/cloud platform cluster."""
+    # 0. Bootstrap supply-chain authoritative policies and models
+    bootstrap_supply_chain()
+
     # 1. Initialize core state and components
     telemetry_store = TelemetryStore(staleness_threshold_ms=3000.0)
     decision_engine = DecisionEngine()
@@ -88,8 +138,8 @@ def create_simulated_cluster() -> Tuple[
     grpc_servers = []
     
     # We will use TLS for local testing if certs are present, otherwise insecure
-    import os
-    use_tls = os.path.exists("certs/ca.crt")
+    # We will use TLS for local testing using the SimulatedIdentityProvider
+    use_tls = True
     
     base_port = 50051
     for i, (node_id, node) in enumerate(nodes.items()):

@@ -16,6 +16,9 @@ from scheduler.dispatcher import TaskScheduler
 
 @pytest.fixture
 def setup_scheduler():
+    from common.cluster import bootstrap_supply_chain
+    bootstrap_supply_chain()
+
     n1 = SimulatedNode("node-1", NodeClass.EDGE, 10.0, 100.0, 0.005, ["eu-only"])
     n2 = SimulatedNode("node-2", NodeClass.EDGE, 20.0, 80.0, 0.004, ["eu-only"])
     n3 = SimulatedNode("node-3", NodeClass.CLOUD, 50.0, 500.0, 0.02, ["global"])
@@ -25,8 +28,7 @@ def setup_scheduler():
     w3 = InferenceWorker(n3)
 
     from node_agent.grpc_server import serve
-    import os
-    use_tls = os.path.exists("certs/ca.crt")
+    use_tls = True
     
     s1 = serve(w1, port=50061, use_tls=use_tls)
     s2 = serve(w2, port=50062, use_tls=use_tls)

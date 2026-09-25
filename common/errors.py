@@ -10,6 +10,12 @@ class OrchestrationError(Exception):
         self.details = details or {}
 
 
+class SecurityError(OrchestrationError):
+    """Raised when cryptographic or authorization policies are violated."""
+    def __init__(self, message: str, details: dict | None = None):
+        super().__init__(message, error_code="SECURITY_ERROR", details=details)
+
+
 class ConstraintViolationError(OrchestrationError):
     """Raised when no nodes satisfy hard constraints."""
     def __init__(self, message: str, details: dict | None = None):
@@ -56,3 +62,14 @@ class IdempotencyConflictError(OrchestrationError):
             error_code="IDEMPOTENCY_CONFLICT",
             details={"idempotency_key": idempotency_key},
         )
+
+
+class ArtifactVerificationError(OrchestrationError):
+    """Raised when an artifact digest, signature, provenance, or policy check fails."""
+    def __init__(self, message: str, artifact_id: str, digest: str | None = None, details: dict | None = None):
+        d = details or {}
+        d["artifact_id"] = artifact_id
+        if digest:
+            d["digest"] = digest
+        super().__init__(message, error_code="ARTIFACT_VERIFICATION_FAILED", details=d)
+

@@ -6,8 +6,28 @@ from __future__ import annotations
 
 import time
 from typing import Any, Dict, List, Optional
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import FastAPI, HTTPException, Request, status, Depends
 from fastapi.responses import JSONResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+import os
+
+security = HTTPBearer()
+
+def verify_gateway_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    expected_token = os.environ.get("GATEWAY_AUTH_TOKEN")
+    if not expected_token:
+        logger.error("GATEWAY_AUTH_TOKEN is missing from environment")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Gateway authentication is not configured correctly",
+        )
+    if credentials.credentials != expected_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return credentials.credentials
 
 from common.errors import (
     ConstraintViolationError,
@@ -113,7 +133,7 @@ def create_gateway_app(
         return {"status": "recorded", "node_id": snapshot.node_id}
 
     @app.post("/v1/tasks/infer")
-    async def submit_inference_task(task: TaskRequest) -> Dict[str, Any]:
+    async def submit_inference_task(task: TaskRequest, token: str = Depends(verify_gateway_token)) -> Dict[str, Any]:
         """Primary inference ingress endpoint."""
         span = tracer.start_span("submit_inference_task")
         span.set_attribute("task.id", task.task_id)
@@ -152,7 +172,7 @@ def create_gateway_app(
                     execution=ExecutionResult(task_id=task.task_id, node_id="none", node_class=NodeClass.EDGE, status=ExecutionStatus.SUCCESS, execution_time_ms=0.0, output={}, error="", cached=False, idempotency_key=""),
                     is_shadow_mode=True
                 )
-                aggregator._audit_log.append(shadow_event)
+                aggregator.ledger.append(shadow_event)
         elif not app.state.decision_engine_enabled:
             logger.warning(
                 "Decision engine is marked disabled/unavailable; failing open to static policy",
@@ -222,12 +242,12 @@ def create_gateway_app(
         return response_payload
 
     @app.get("/v1/audit/events", response_model=List[AuditEvent])
-    async def get_audit_events(task_id: Optional[str] = None) -> List[AuditEvent]:
+    async def get_audit_events(task_id: Optional[str] = None, token: str = Depends(verify_gateway_token)) -> List[AuditEvent]:
         """Query immutable placement and execution audit log."""
         return aggregator.get_audit_trail(task_id)
 
     @app.post("/v1/admin/sla-weights")
-    async def update_sla_weights(sla_class: SLAClass, weights: SLAWeights) -> Dict[str, Any]:
+    async def update_sla_weights(sla_class: SLAClass, weights: SLAWeights, token: str = Depends(verify_gateway_token)) -> Dict[str, Any]:
         """Dynamic hot-reloading of SLA weight profiles."""
         decision_engine.update_sla_profiles({sla_class: weights})
         return {"status": "updated", "sla_class": sla_class.value, "weights": weights.to_dict()}

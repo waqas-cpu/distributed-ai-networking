@@ -13,7 +13,7 @@ async def run_scenario(scenario_num: int):
     print(f"==================================================")
     
     telemetry_store, decision_engine, scheduler, aggregator, nodes, app, grpc_servers = create_simulated_cluster()
-    client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test")
+    client = httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-gateway-token"})
     
     # Base task
     task_payload = {

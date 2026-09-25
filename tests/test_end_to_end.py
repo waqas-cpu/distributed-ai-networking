@@ -28,7 +28,7 @@ def cluster_env():
 @pytest.mark.anyio
 async def test_gateway_health(cluster_env):
     app = cluster_env["app"]
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-gateway-token"}) as client:
         resp = await client.get("/v1/health")
         assert resp.status_code == 200
         data = resp.json()
@@ -50,7 +50,7 @@ async def test_end_to_end_inference_real_time(cluster_env):
         "idempotency_key": "e2e-rt-task-001",
     }
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-gateway-token"}) as client:
         resp = await client.post("/v1/tasks/infer", json=payload)
         assert resp.status_code == 200
         data = resp.json()
@@ -80,7 +80,7 @@ async def test_end_to_end_data_residency_constraint(cluster_env):
         "idempotency_key": "e2e-us-residency-001",
     }
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-gateway-token"}) as client:
         resp = await client.post("/v1/tasks/infer", json=payload)
         assert resp.status_code == 200
         data = resp.json()
@@ -104,7 +104,7 @@ async def test_fail_open_when_decision_engine_offline(cluster_env):
         "idempotency_key": "e2e-fail-open-001",
     }
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-gateway-token"}) as client:
         resp = await client.post("/v1/tasks/infer", json=payload)
         assert resp.status_code == 200
         data = resp.json()
@@ -126,7 +126,7 @@ async def test_audit_trail_recorded(cluster_env):
         "idempotency_key": "e2e-audit-task-001",
     }
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-gateway-token"}) as client:
         infer_resp = await client.post("/v1/tasks/infer", json=payload)
         assert infer_resp.status_code == 200
         task_id = infer_resp.json()["task_id"]

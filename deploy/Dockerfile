@@ -3,14 +3,16 @@ FROM python:3.11-slim AS runtime
 
 WORKDIR /app
 
-# Install dependencies
-RUN pip install --no-cache-dir \
-    fastapi==0.141.1 \
-    uvicorn==0.52.4 \
-    pydantic==2.13.4 \
-    pyyaml==6.0.3 \
-    httpx==0.28.1 \
-    pytest==9.1.1
+# Install system dependencies for liboqs (PQC C-extensions)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    cmake \
+    ninja-build \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements and install
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source repository
 COPY contracts/ ./contracts/

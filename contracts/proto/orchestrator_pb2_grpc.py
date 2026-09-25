@@ -3,7 +3,7 @@
 import grpc
 import warnings
 
-from . import orchestrator_pb2 as orchestrator__pb2
+from contracts.proto import orchestrator_pb2 as contracts_dot_proto_dot_orchestrator__pb2
 
 GRPC_GENERATED_VERSION = '1.83.1'
 GRPC_VERSION = grpc.__version__
@@ -18,7 +18,7 @@ except ImportError:
 if _version_not_supported:
     raise RuntimeError(
         f'The grpc package installed is at version {GRPC_VERSION},'
-        + ' but the generated code in orchestrator_pb2_grpc.py depends on'
+        + ' but the generated code in contracts/proto/orchestrator_pb2_grpc.py depends on'
         + f' grpcio>={GRPC_GENERATED_VERSION}.'
         + f' Please upgrade your grpc module to grpcio>={GRPC_GENERATED_VERSION}'
         + f' or downgrade your generated code using grpcio-tools<={GRPC_VERSION}.'
@@ -38,8 +38,8 @@ class NodeRegistryStub:
         """
         self.RegisterNode = channel.unary_unary(
                 '/orchestrator.NodeRegistry/RegisterNode',
-                request_serializer=orchestrator__pb2.NodeRegistrationRequest.SerializeToString,
-                response_deserializer=orchestrator__pb2.NodeRegistrationResponse.FromString,
+                request_serializer=contracts_dot_proto_dot_orchestrator__pb2.NodeRegistrationRequest.SerializeToString,
+                response_deserializer=contracts_dot_proto_dot_orchestrator__pb2.NodeRegistrationResponse.FromString,
                 _registered_method=True)
 
 
@@ -59,8 +59,8 @@ def add_NodeRegistryServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'RegisterNode': grpc.unary_unary_rpc_method_handler(
                     servicer.RegisterNode,
-                    request_deserializer=orchestrator__pb2.NodeRegistrationRequest.FromString,
-                    response_serializer=orchestrator__pb2.NodeRegistrationResponse.SerializeToString,
+                    request_deserializer=contracts_dot_proto_dot_orchestrator__pb2.NodeRegistrationRequest.FromString,
+                    response_serializer=contracts_dot_proto_dot_orchestrator__pb2.NodeRegistrationResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -90,8 +90,8 @@ class NodeRegistry:
             request,
             target,
             '/orchestrator.NodeRegistry/RegisterNode',
-            orchestrator__pb2.NodeRegistrationRequest.SerializeToString,
-            orchestrator__pb2.NodeRegistrationResponse.FromString,
+            contracts_dot_proto_dot_orchestrator__pb2.NodeRegistrationRequest.SerializeToString,
+            contracts_dot_proto_dot_orchestrator__pb2.NodeRegistrationResponse.FromString,
             options,
             channel_credentials,
             insecure,
@@ -116,8 +116,8 @@ class TelemetryStub:
         """
         self.StreamTelemetry = channel.stream_unary(
                 '/orchestrator.Telemetry/StreamTelemetry',
-                request_serializer=orchestrator__pb2.TelemetrySnapshot.SerializeToString,
-                response_deserializer=orchestrator__pb2.TelemetryAck.FromString,
+                request_serializer=contracts_dot_proto_dot_orchestrator__pb2.SignedTelemetryEnvelope.SerializeToString,
+                response_deserializer=contracts_dot_proto_dot_orchestrator__pb2.TelemetryAck.FromString,
                 _registered_method=True)
 
 
@@ -137,8 +137,8 @@ def add_TelemetryServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'StreamTelemetry': grpc.stream_unary_rpc_method_handler(
                     servicer.StreamTelemetry,
-                    request_deserializer=orchestrator__pb2.TelemetrySnapshot.FromString,
-                    response_serializer=orchestrator__pb2.TelemetryAck.SerializeToString,
+                    request_deserializer=contracts_dot_proto_dot_orchestrator__pb2.SignedTelemetryEnvelope.FromString,
+                    response_serializer=contracts_dot_proto_dot_orchestrator__pb2.TelemetryAck.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -168,8 +168,8 @@ class Telemetry:
             request_iterator,
             target,
             '/orchestrator.Telemetry/StreamTelemetry',
-            orchestrator__pb2.TelemetrySnapshot.SerializeToString,
-            orchestrator__pb2.TelemetryAck.FromString,
+            contracts_dot_proto_dot_orchestrator__pb2.SignedTelemetryEnvelope.SerializeToString,
+            contracts_dot_proto_dot_orchestrator__pb2.TelemetryAck.FromString,
             options,
             channel_credentials,
             insecure,
@@ -194,8 +194,8 @@ class ExecutionStub:
         """
         self.ExecuteTask = channel.unary_unary(
                 '/orchestrator.Execution/ExecuteTask',
-                request_serializer=orchestrator__pb2.ExecutionRequest.SerializeToString,
-                response_deserializer=orchestrator__pb2.ExecutionResponse.FromString,
+                request_serializer=contracts_dot_proto_dot_orchestrator__pb2.SignedTaskEnvelope.SerializeToString,
+                response_deserializer=contracts_dot_proto_dot_orchestrator__pb2.SignedResultEnvelope.FromString,
                 _registered_method=True)
 
 
@@ -215,8 +215,8 @@ def add_ExecutionServicer_to_server(servicer, server):
     rpc_method_handlers = {
             'ExecuteTask': grpc.unary_unary_rpc_method_handler(
                     servicer.ExecuteTask,
-                    request_deserializer=orchestrator__pb2.ExecutionRequest.FromString,
-                    response_serializer=orchestrator__pb2.ExecutionResponse.SerializeToString,
+                    request_deserializer=contracts_dot_proto_dot_orchestrator__pb2.SignedTaskEnvelope.FromString,
+                    response_serializer=contracts_dot_proto_dot_orchestrator__pb2.SignedResultEnvelope.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -246,8 +246,8 @@ class Execution:
             request,
             target,
             '/orchestrator.Execution/ExecuteTask',
-            orchestrator__pb2.ExecutionRequest.SerializeToString,
-            orchestrator__pb2.ExecutionResponse.FromString,
+            contracts_dot_proto_dot_orchestrator__pb2.SignedTaskEnvelope.SerializeToString,
+            contracts_dot_proto_dot_orchestrator__pb2.SignedResultEnvelope.FromString,
             options,
             channel_credentials,
             insecure,

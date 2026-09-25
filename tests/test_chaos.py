@@ -34,7 +34,7 @@ async def test_chaos_de_crash_fail_open(cluster_env):
         "idempotency_key": "chaos-de-crash-1",
     }
     
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-gateway-token"}) as client:
         resp = await client.post("/v1/tasks/infer", json=payload)
         assert resp.status_code == 200
         data = resp.json()
@@ -77,7 +77,7 @@ async def test_chaos_telemetry_staleness(cluster_env):
         "idempotency_key": "chaos-stale-1",
     }
     
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-gateway-token"}) as client:
         resp = await client.post("/v1/tasks/infer", json=payload)
         assert resp.status_code == 200
         data = resp.json()
@@ -102,7 +102,7 @@ async def test_chaos_network_partition_fallback(cluster_env):
         "idempotency_key": "chaos-net-partition-1",
     }
     
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test") as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://test", headers={"Authorization": "Bearer test-gateway-token"}) as client:
         resp = await client.post("/v1/tasks/infer", json=payload)
         assert resp.status_code == 200
         data = resp.json()

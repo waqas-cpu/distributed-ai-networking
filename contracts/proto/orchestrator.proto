@@ -15,6 +15,9 @@ message NodeRegistrationRequest {
   repeated string data_residency_zones = 4;
   string hardware_specs_json = 5;
   string auth_token = 6;
+  string public_signing_key = 7;
+  string assurance_level = 8;
+  bytes attestation_evidence = 9;
 }
 
 message NodeRegistrationResponse {
@@ -26,7 +29,7 @@ message NodeRegistrationResponse {
 // Telemetry Service
 // Streams telemetry from Node Agents to the Control Plane.
 service Telemetry {
-  rpc StreamTelemetry (stream TelemetrySnapshot) returns (TelemetryAck) {}
+  rpc StreamTelemetry (stream SignedTelemetryEnvelope) returns (TelemetryAck) {}
 }
 
 message TelemetrySnapshot {
@@ -43,6 +46,22 @@ message TelemetrySnapshot {
   repeated string data_residency_zones = 11;
 }
 
+message SignedTelemetryEnvelope {
+  string node_id = 1;
+  string schema_version = 2;
+  double timestamp = 3;
+  double expires_at = 4;
+  int64 sequence_number = 5;
+  string nonce = 6;
+  bytes payload_json = 7; // canonical json of TelemetrySnapshot
+  bytes previous_message_hash = 8;
+  string signature_algorithm = 9;
+  string key_id = 10;
+  bytes signature = 11;
+  string pq_signature_algorithm = 12;
+  bytes pq_signature = 13;
+}
+
 message TelemetryAck {
   string status = 1;
 }
@@ -51,26 +70,36 @@ message TelemetryAck {
 // Execution Service
 // Used by the Scheduler to dispatch inference tasks to Node Agents.
 service Execution {
-  rpc ExecuteTask (ExecutionRequest) returns (ExecutionResponse) {}
+  rpc ExecuteTask (SignedTaskEnvelope) returns (SignedResultEnvelope) {}
 }
 
-message ExecutionRequest {
+message SignedTaskEnvelope {
   string task_id = 1;
   string node_id = 2;
-  string model_id = 3;
-  string payload_ref = 4;
-  string idempotency_key = 5;
-  double timeout_ms = 6;
+  int64 cluster_epoch = 3;
+  int64 leader_lease_id = 4;
+  double issue_time = 5;
+  double expires_at = 6;
+  bytes encrypted_payload = 7;
+  bytes encrypted_dek = 8;
+  string signature_algorithm = 9;
+  string key_id = 10;
+  bytes signature = 11;
+  string schema_version = 12;
+  string pq_signature_algorithm = 13;
+  bytes pq_signature = 14;
 }
 
-message ExecutionResponse {
+message SignedResultEnvelope {
   string task_id = 1;
   string node_id = 2;
-  string node_class = 3;
-  string status = 4; // "success", "failed", "rejected"
-  double execution_time_ms = 5;
-  string output_json = 6;
-  string error = 7;
-  bool cached = 8;
-  string idempotency_key = 9;
+  double issue_time = 3;
+  bytes encrypted_result = 4;
+  bytes encrypted_dek = 5;
+  string signature_algorithm = 6;
+  string key_id = 7;
+  bytes signature = 8;
+  string schema_version = 9;
+  string pq_signature_algorithm = 10;
+  bytes pq_signature = 11;
 }

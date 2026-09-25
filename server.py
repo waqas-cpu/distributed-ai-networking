@@ -13,7 +13,9 @@ setup_logging()
 
 # Initialize core components
 redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
-use_tls = os.environ.get("ENABLE_MTLS", "false").lower() == "true"
+use_tls = os.environ.get("ENABLE_MTLS", "true").lower() == "true"
+if not use_tls and os.environ.get("APP_ENV", "production") == "production":
+    raise ValueError("mTLS cannot be disabled in production (APP_ENV=production).")
 
 telemetry_store = RedisTelemetryStore(redis_url=redis_url, staleness_threshold_ms=3000.0)
 decision_engine = DecisionEngine()

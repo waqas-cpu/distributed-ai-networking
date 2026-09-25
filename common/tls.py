@@ -1,16 +1,12 @@
-import os
 import grpc
+from common.identity import SimulatedIdentityProvider
 
-def get_server_credentials(certs_dir: str = "certs") -> grpc.ServerCredentials:
+def get_server_credentials(spiffe_id: str) -> grpc.ServerCredentials:
     """
-    Creates gRPC ServerCredentials enforcing mTLS.
+    Creates gRPC ServerCredentials enforcing mTLS using a dynamic SVID.
     """
-    with open(os.path.join(certs_dir, "server.key"), "rb") as f:
-        server_key = f.read()
-    with open(os.path.join(certs_dir, "server.crt"), "rb") as f:
-        server_cert = f.read()
-    with open(os.path.join(certs_dir, "ca.crt"), "rb") as f:
-        ca_cert = f.read()
+    provider = SimulatedIdentityProvider()
+    server_key, server_cert, ca_cert = provider.get_svid(spiffe_id)
 
     return grpc.ssl_server_credentials(
         [(server_key, server_cert)],
@@ -18,16 +14,12 @@ def get_server_credentials(certs_dir: str = "certs") -> grpc.ServerCredentials:
         require_client_auth=True
     )
 
-def get_client_credentials(certs_dir: str = "certs") -> grpc.ChannelCredentials:
+def get_client_credentials(spiffe_id: str) -> grpc.ChannelCredentials:
     """
-    Creates gRPC ChannelCredentials for mTLS client connections.
+    Creates gRPC ChannelCredentials for mTLS client connections using a dynamic SVID.
     """
-    with open(os.path.join(certs_dir, "client.key"), "rb") as f:
-        client_key = f.read()
-    with open(os.path.join(certs_dir, "client.crt"), "rb") as f:
-        client_cert = f.read()
-    with open(os.path.join(certs_dir, "ca.crt"), "rb") as f:
-        ca_cert = f.read()
+    provider = SimulatedIdentityProvider()
+    client_key, client_cert, ca_cert = provider.get_svid(spiffe_id)
 
     return grpc.ssl_channel_credentials(
         root_certificates=ca_cert,

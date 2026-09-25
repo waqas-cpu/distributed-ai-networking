@@ -8,6 +8,7 @@ import time
 from typing import Any, Dict, List, Optional
 from common.logger import get_logger
 from contracts.models import AuditEvent, ExecutionResult, PlacementDecision
+from results_aggregator.ledger import TamperEvidentLedger
 
 logger = get_logger("results_aggregator", component="results_aggregator")
 
@@ -16,7 +17,7 @@ class ResultsAggregator:
     """Aggregates execution results, normalizes response envelopes, and records audit logs."""
 
     def __init__(self) -> None:
-        self._audit_log: List[AuditEvent] = []
+        self.ledger = TamperEvidentLedger()
 
     def aggregate(
         self,
@@ -30,6 +31,7 @@ class ResultsAggregator:
         """Produce the unified client-facing response envelope and persist audit event."""
         audit_record = AuditEvent(
             task_id=task_id,
+            model_digest=execution.model_digest,
             timestamp=time.time(),
             decision=decision,
             execution=execution,
@@ -37,8 +39,7 @@ class ResultsAggregator:
             attempts=attempts,
             gateway_rtt_observed_ms=gateway_observed_rtt_ms,
         )
-
-        self._audit_log.append(audit_record)
+        self.ledger.append(audit_record)
 
         logger.info(
             f"Audit event recorded for task {task_id}: event_id={audit_record.event_id}, "
@@ -62,6 +63,7 @@ class ResultsAggregator:
                 "node_class": execution.node_class.value,
                 "execution_time_ms": execution.execution_time_ms,
                 "decision_overhead_ms": decision.decision_latency_ms,
+                "model_digest": execution.model_digest,
                 "fallback_activated": fallback_activated,
                 "attempts": attempts,
                 "audit_event_id": audit_record.event_id,
@@ -78,6 +80,4 @@ class ResultsAggregator:
 
     def get_audit_trail(self, task_id: Optional[str] = None) -> List[AuditEvent]:
         """Retrieve recorded audit events, optionally filtered by task_id."""
-        if task_id:
-            return [e for e in self._audit_log if e.task_id == task_id]
-        return list(self._audit_log)
+        return self.ledger.get_all(task_id)

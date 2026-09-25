@@ -11,6 +11,22 @@ from contracts.models import SLAClass
 from contracts.sla_profiles import SLAWeights
 
 CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+CONFIG_DIR = Path(__file__).resolve().parent.parent / "config"
+
+class PqcConfig:
+    """Post-Quantum Cryptography Configuration Profile."""
+    
+    @classmethod
+    def load(cls) -> Dict[str, Any]:
+        return {
+            "PQC_MODE": os.getenv("PQC_MODE", "disabled"),
+            "PQC_KEM": os.getenv("PQC_KEM", "ML-KEM-768"),
+            "PQC_SIGNATURE": os.getenv("PQC_SIGNATURE", "ML-DSA-65"),
+            "PQC_CLASSICAL_SIGNATURE": os.getenv("PQC_CLASSICAL_SIGNATURE", "Ed25519"),
+            "PQC_MESSAGE_SIGNATURE_POLICY": os.getenv("PQC_MESSAGE_SIGNATURE_POLICY", "classical"),
+            "PQC_ALLOW_OQS_PROVIDER": os.getenv("PQC_ALLOW_OQS_PROVIDER", "false").lower() == "true",
+            "PQC_REQUIRE_CAPABILITY_PROBE": os.getenv("PQC_REQUIRE_CAPABILITY_PROBE", "true").lower() == "true",
+        }
 
 
 def load_yaml_config(file_path: Path | str) -> Dict[str, Any]:

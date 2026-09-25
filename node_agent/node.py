@@ -3,8 +3,16 @@
 from __future__ import annotations
 
 import time
+import base64
+from contracts.models import HealthStatus, NodeClass, NodeTelemetrySnapshot, AssuranceLevel, HardwareAttestation
+from common.config import PqcConfig
+from common.crypto import OqsSignatureProvider, OQS_AVAILABLE
+import logging
 from typing import Dict, List, Optional
-from contracts.models import HealthStatus, NodeClass, NodeTelemetrySnapshot
+from cryptography.hazmat.primitives.asymmetric import ed25519
+from cryptography.hazmat.primitives import serialization
+
+logger = logging.getLogger("node_agent")
 
 
 class SimulatedNode:
@@ -22,6 +30,7 @@ class SimulatedNode:
         gpu_util_pct: float = 30.0,
         queue_depth: int = 0,
         health: HealthStatus = HealthStatus.HEALTHY,
+        assurance_level: AssuranceLevel = AssuranceLevel.STANDARD,
     ) -> None:
         self.node_id = node_id
         self.node_class = node_class
@@ -33,9 +42,43 @@ class SimulatedNode:
         self.gpu_util_pct = gpu_util_pct
         self.queue_depth = queue_depth
         self.health = health
+        self.assurance_level = assurance_level
         self.last_heartbeat_time = time.time()
         self.is_offline = False
         self.fail_execution = False
+        
+        # Phase 4/5: Node signing identity
+        self.signing_key = ed25519.Ed25519PrivateKey.generate()
+        self.public_key_pem = self.signing_key.public_key().public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo
+        ).decode('utf-8')
+        
+        # Phase 8: PQC Setup
+        self.pqc_config = PqcConfig.load()
+        self.dual_required = self.pqc_config.get("PQC_MESSAGE_SIGNATURE_POLICY") == "dual_required"
+        self.pq_signer = None
+        if self.dual_required:
+            if not OQS_AVAILABLE:
+                logger.critical(f"Node {self.node_id}: dual_required signature policy requested but OQS provider is unavailable")
+            else:
+                self.pq_signer = OqsSignatureProvider(self.pqc_config.get("PQC_SIGNATURE", "ML-DSA-65"))
+                self.pq_pubkey, self.pq_privkey = self.pq_signer.generate_keypair()
+        
+    def get_attestation_evidence(self) -> Optional[HardwareAttestation]:
+        """Return dummy TPM/TEE evidence if node is HIGH_ASSURANCE."""
+        if self.assurance_level != AssuranceLevel.HIGH_ASSURANCE:
+            return None
+        
+        # In a real system, this interacts with /dev/tpm0 or TEE interface
+        dummy_quote = base64.b64encode(b"simulated_tpm2_quote_data").decode('utf-8')
+        dummy_sig = "dummy_signature_over_quote"
+        return HardwareAttestation(
+            evidence_type="tpm2_quote",
+            quote=dummy_quote,
+            pcr_banks={"sha256": "0x123456..."},
+            signature=dummy_sig
+        )
 
     def emit_snapshot(self, gateway_observed_rtt_ms: Optional[float] = None) -> NodeTelemetrySnapshot:
         """Produce current telemetry snapshot."""
@@ -56,6 +99,7 @@ class SimulatedNode:
             last_heartbeat_age_ms=heartbeat_age_ms,
             data_residency_zones=self.data_residency_zones,
             gateway_observed_rtt_ms=gateway_observed_rtt_ms,
+            assurance_level=self.assurance_level,
         )
 
     def heartbeat(self) -> None:

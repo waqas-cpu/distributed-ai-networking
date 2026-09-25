@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import time
 from typing import Dict, Optional
-from common.errors import NodeUnavailableError
+from common.errors import NodeUnavailableError, ArtifactVerificationError
 from common.logger import get_logger
+from common.supply_chain import verify_artifact_for_execution
 from contracts.models import (
     ExecutionRequest,
     ExecutionResult,
@@ -25,7 +26,7 @@ class InferenceWorker:
         self._processed_idempotency_keys: Dict[str, ExecutionResult] = {}
 
     def execute(self, request: ExecutionRequest) -> ExecutionResult:
-        """Execute inference workload with idempotency tracking and failure simulation."""
+        """Execute inference workload with idempotency tracking, supply-chain validation, and failure simulation."""
         # 1. Check idempotency cache to prevent duplicate billing / execution
         if request.idempotency_key in self._processed_idempotency_keys:
             cached_result = self._processed_idempotency_keys[request.idempotency_key]
@@ -41,9 +42,16 @@ class InferenceWorker:
             logger.error(msg, extra={"task_id": request.task_id, "node_id": self.node.node_id})
             raise NodeUnavailableError(msg, node_id=self.node.node_id)
 
+        # 3. Phase 7: Supply-chain assurance & pre-execution verification
+        # Verify immutable digest, signature, provenance, policy, and revocation status
+        approved_record = verify_artifact_for_execution(
+            model_id=request.model_id,
+            digest=request.model_digest,
+        )
+
         start_time = time.perf_counter()
 
-        # 3. Simulate realistic inference computation
+        # 4. Simulate realistic inference computation
         # Edge nodes simulate quantized lightweight inference (e.g. 15ms base)
         # Cloud nodes simulate high-throughput GPU inference (e.g. 8ms base)
         base_exec_ms = 12.0 if self.node.node_class == NodeClass.EDGE else 6.0
@@ -55,6 +63,7 @@ class InferenceWorker:
         # Output payload simulation for vision classifier
         output_payload = {
             "model": request.model_id,
+            "model_digest": approved_record.digest,
             "prediction": "classified_defect_none",
             "confidence": 0.984,
             "latency_breakdown": {
@@ -65,6 +74,7 @@ class InferenceWorker:
                 "node_id": self.node.node_id,
                 "node_class": self.node.node_class.value,
                 "residency": self.node.data_residency_zones,
+                "model_digest": approved_record.digest,
             },
         }
 
@@ -74,6 +84,7 @@ class InferenceWorker:
             node_class=self.node.node_class,
             status=ExecutionStatus.SUCCESS,
             execution_time_ms=round(exec_duration_ms, 2),
+            model_digest=approved_record.digest,
             output=output_payload,
             error=None,
             cached=False,
@@ -83,3 +94,4 @@ class InferenceWorker:
         # Cache result under idempotency key
         self._processed_idempotency_keys[request.idempotency_key] = result
         return result
+

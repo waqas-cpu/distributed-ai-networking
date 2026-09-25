@@ -53,16 +53,23 @@ class HealthStatus(str, Enum):
     UNREACHABLE = "unreachable"
 
 
+class AssuranceLevel(str, Enum):
+    STANDARD = "standard"
+    HIGH_ASSURANCE = "high_assurance"
+
+
 class TaskRequest(BaseModel):
     """Client-facing ingress task request contract."""
     task_id: str = Field(default_factory=generate_uuidv7, description="UUIDv7 unique task identifier")
     workload_type: WorkloadType = Field(default=WorkloadType.INFERENCE, description="Type of AI workload")
     model_id: str = Field(..., description="Target model identifier (e.g. vision-classifier-v3)")
+    model_digest: Optional[str] = Field(default=None, description="Immutable model digest (e.g. sha256:abc...)")
     sla_class: SLAClass = Field(default=SLAClass.REAL_TIME, description="SLA performance tier")
     payload_ref: str = Field(..., description="URI or inline data representation of inference input")
     max_latency_ms: float = Field(default=150.0, ge=1.0, description="Max tolerable end-to-end latency in ms")
     data_residency: Optional[str] = Field(default="none", description="Hard residency requirement (e.g. eu-only, us-only, none)")
     idempotency_key: str = Field(..., min_length=1, description="Client-generated key preventing duplicate execution")
+    required_assurance_level: AssuranceLevel = Field(default=AssuranceLevel.STANDARD, description="Required hardware assurance level")
 
 
 class NodeTelemetrySnapshot(BaseModel):
@@ -80,6 +87,7 @@ class NodeTelemetrySnapshot(BaseModel):
     last_heartbeat_age_ms: float = Field(..., ge=0.0, description="Elapsed ms since last received heartbeat")
     data_residency_zones: List[str] = Field(default_factory=lambda: ["global"], description="Regions/zones this node satisfies (e.g. eu-only)")
     gateway_observed_rtt_ms: Optional[float] = Field(default=None, description="Independent RTT measured by the gateway")
+    assurance_level: AssuranceLevel = Field(default=AssuranceLevel.STANDARD, description="Node hardware assurance level")
 
     @property
     def compute_utilization(self) -> float:
@@ -106,6 +114,7 @@ class ExecutionRequest(BaseModel):
     task_id: str
     node_id: str
     model_id: str
+    model_digest: Optional[str] = None
     payload_ref: str
     idempotency_key: str
     timeout_ms: float = 5000.0
@@ -124,6 +133,7 @@ class ExecutionResult(BaseModel):
     node_class: NodeClass
     status: ExecutionStatus
     execution_time_ms: float
+    model_digest: Optional[str] = None
     output: Optional[Dict[str, Any]] = None
     error: Optional[str] = None
     cached: bool = False
@@ -133,7 +143,9 @@ class ExecutionResult(BaseModel):
 class AuditEvent(BaseModel):
     """Immutable audit record persisted for governance, tracing, and compliance."""
     event_id: str = Field(default_factory=generate_uuidv7)
+    schema_version: str = "1.0"
     task_id: str
+    model_digest: Optional[str] = None
     timestamp: float = Field(default_factory=time.time)
     decision: PlacementDecision
     execution: ExecutionResult
@@ -141,6 +153,52 @@ class AuditEvent(BaseModel):
     attempts: int = 1
     gateway_rtt_observed_ms: Optional[float] = None
     is_shadow_mode: bool = False
+    previous_event_hash: str = ""
+    event_hash: str = ""
+
+
+class ArtifactProvenance(BaseModel):
+    """SLSA/in-toto style build provenance attestation for models and runtime containers."""
+    artifact_name: str
+    digest: str = Field(..., description="Cryptographic SHA-256 digest (e.g. sha256:...)")
+    builder_identity: str = Field(..., description="SPIFFE ID or CI builder identity")
+    source_repo: str = "https://github.com/distributed-ai/orchestration"
+    commit_sha: str
+    build_timestamp: float = Field(default_factory=time.time)
+    sbom_digest: str = Field(..., description="Digest of CycloneDX/SPDX SBOM")
+    vulnerabilities_summary: Dict[str, int] = Field(
+        default_factory=lambda: {"CRITICAL": 0, "HIGH": 0, "MEDIUM": 0, "LOW": 0}
+    )
+
+
+class ApprovedArtifactRecord(BaseModel):
+    """Authoritative control-plane record of an approved, signed model artifact."""
+    model_id: str
+    digest: str
+    provenance: ArtifactProvenance
+    signature_algorithm: str = "Ed25519"
+    signature: str = Field(..., description="Hex-encoded signature over canonical provenance")
+    signing_key_id: str
+    revoked: bool = False
+
+
+class SupplyChainPolicy(BaseModel):
+    """Supply chain security policy governing artifact admission."""
+    require_immutable_digest: bool = True
+    require_signature: bool = True
+    allowed_builders: List[str] = Field(
+        default_factory=lambda: ["spiffe://distributed-ai.local/ci-builder"]
+    )
+    max_allowed_critical_vulns: int = 0
+    max_allowed_high_vulns: int = 0
+
+
+class HardwareAttestation(BaseModel):
+    """Hardware attestation evidence for high-assurance nodes (TPM/TEE)."""
+    evidence_type: str = Field(default="tpm2_quote", description="Type of evidence provided")
+    quote: str = Field(..., description="Base64 encoded TPM quote")
+    pcr_banks: Dict[str, str] = Field(default_factory=dict, description="PCR values mapped by index")
+    signature: str = Field(..., description="Signature over the quote and PCRs")
 
 
 class NodeRegistration(BaseModel):
@@ -151,6 +209,8 @@ class NodeRegistration(BaseModel):
     data_residency_zones: List[str]
     hardware_specs: Dict[str, Any] = Field(default_factory=dict)
     auth_token: str
+    assurance_level: AssuranceLevel = Field(default=AssuranceLevel.STANDARD)
+    attestation_evidence: Optional[HardwareAttestation] = None
 
 
 class HealthCheckResponse(BaseModel):

@@ -46,11 +46,9 @@ def main():
     worker = InferenceWorker(node)
     
     use_tls = not args.insecure
-    import os
-    auth_token = os.environ.get("CLUSTER_AUTH_TOKEN", "default-insecure-token-123")
 
     # Start Telemetry Client (Heartbeat to Gateway)
-    streamer = TelemetryStreamer(node, auth_token=auth_token, control_plane_target=args.control_plane, use_tls=use_tls)
+    streamer = TelemetryStreamer(node, control_plane_target=args.control_plane, use_tls=use_tls)
     streamer.start()
 
     # Start Execution Server (Listen for Scheduler tasks)

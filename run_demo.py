@@ -39,7 +39,7 @@ async def main() -> None:
     for node_id, node in nodes.items():
         print(f"  * {node_id:<22} | Class: {node.node_class.value:<5} | RTT: {node.base_rtt_ms:5.1f}ms | Cost/1k: ${node.cost_per_1k_usd:.4f} | Zones: {node.data_residency_zones}")
 
-    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://platform.internal") as client:
+    async with httpx.AsyncClient(transport=httpx.ASGITransport(app=app), base_url="http://platform.internal", headers={"Authorization": "Bearer test-gateway-token"}) as client:
         # Check Health
         health_resp = await client.get("/v1/health")
         print(f"\n[OK] Gateway Health Check: {health_resp.json()['status']} (Dependencies: {health_resp.json()['dependencies']})")
